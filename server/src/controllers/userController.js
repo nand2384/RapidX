@@ -9,4 +9,14 @@ const getRequest = async (req, res) => {
     }
 };
 
-module.exports = { getRequest };
+const registerCustomer = async (req, res) => {
+    try {
+        const { first_name, last_name, email, phone, password, address, state, city, pincode, address_type } = req.body;
+        const response = await userService.registerCustomer(first_name, last_name, email, phone, password, address, state, city, pincode, address_type);
+        res.status(201).json(response);
+    } catch (error) {
+        console.log(error);
+    }
+};
+
+module.exports = { getRequest, registerCustomer };
