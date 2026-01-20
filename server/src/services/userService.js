@@ -8,11 +8,6 @@ const SECRET_KEY = process.env.JWT_KEY;
 
 const saltRounds = 10;
 
-const getRequest = async () => {
-  const result = await pool.query("SELECT * FROM main_master");
-  return result.rows;
-};
-
 const registerCustomer = async (first_name, last_name, email, phone, password, address, state, city, pincode, address_type) => {
   //Generate Hashed Password
   const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -36,8 +31,6 @@ const registerCustomer = async (first_name, last_name, email, phone, password, a
     }
   };
 
-  // const result = await pool.query(`INSERT INTO users (user_id, role_id, email, phone, password, is_banned, created_at, first_name, last_name) VALUES (${userId}, (SELECT role_id FROM roles_master WHERE role_name = 'Customer'), ${email}, ${phone}, ${hashedPassword}, false, NOW(), ${first_name}, ${last_name}`);
-
   try {
     const userQuery = `INSERT INTO users (user_id, role_id, email, phone, password, is_banned, created_at, first_name, last_name) VALUES ($1, (SELECT role_id FROM roles_master WHERE role_name = 'Customer'), $2, $3, $4, $5, NOW(), $6, $7)`;
     const userValues = [userId, email, phone, hashedPassword, false, first_name, last_name];
@@ -46,7 +39,19 @@ const registerCustomer = async (first_name, last_name, email, phone, password, a
     console.log("Error inserting user data to SQL: ", error);
   }
     
-  if (userResult.rowCount > 0) {
+  if(userResult.rowCount > 0) {
+    const addressResult = await insertAddress(userId, null, address, city, state, pincode, address_type, true);
+
+    if(addressResult.rowCount > 0) {
+      const token = generateJwtToken(userId, email);
+      return token;
+    } else {
+      return false;
+    }
+  };
+};
+
+const insertAddress = async (userId, businessId, address, city, state, pincode, address_type, is_default_address) => {
     let addressId;
     let isAddressUnique = false;
 
@@ -66,25 +71,98 @@ const registerCustomer = async (first_name, last_name, email, phone, password, a
     };
 
     try {
-      const addressQuery = `INSERT INTO addresses (address_id, user_id, address, city, state, pincode, address_type, is_default_address) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`;
-      const addressValues = [addressId, userId, address, city, state, pincode, address_type, true];
-      var addressResult = await pool.query(addressQuery, addressValues);
+      const addressQuery = `INSERT INTO addresses (address_id, user_id, business_id, address, city, state, pincode, address_type, is_default_address) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`;
+      const addressValues = [addressId, userId, businessId, address, city, state, pincode, address_type, is_default_address];
+      const addressResult = await pool.query(addressQuery, addressValues);
+
+      return addressResult;
 
     } catch (error) {
       console.log("Error inserting address data to SQL: ", error);
     }
-
-    if(addressResult.rowCount > 0) {
-      const token = jwt.sign(
-        { userId: userId, email: email },
-        SECRET_KEY,
-        { expiresIn: "1h" }
-      );
-      return token;
-    } else {
-      return false;
-    }
-  };
 };
 
-module.exports = { getRequest, registerCustomer };
+const generateJwtToken = (userId, email) => {
+  const token = jwt.sign(
+    { userId: userId, email: email },
+    SECRET_KEY,
+    { expiresIn: "1h" }
+  );
+  return token;
+};               
+
+const registerBusiness = async (company_name, business_type_id, reg_no, business_email, business_phone, address, city, state, pincode, billing_cycle_id, payment_method_id, business_password, admin_name, admin_phone, admin_email, admin_password) => {
+  const hashedPassword = await bcrypt.hash(business_password, saltRounds);
+  const hashedAdminPassword = await bcrypt.hash(admin_password, saltRounds);
+
+  let isUnique;
+  let adminId;
+
+  const generateAdminId = () => {
+    const tempId = Math.floor(100000 + Math.random() * 900000);
+    adminId = Number(`21${tempId}`);
+  }
+
+  while(!isUnique) {
+    generateAdminId();
+    const result = await pool.query(`SELECT * FROM users WHERE user_id = ${adminId}`);
+
+    if(result.rowCount === 0) {
+      isUnique = true;
+    } else {
+      isUnique = false;
+    }
+  };
+
+  try {
+    const adminQuery = `INSERT INTO users (user_id, role_id, email, phone, password, is_banned, created_at, first_name) VALUES ($1, (SELECT role_id FROM roles_master WHERE role_name = 'Business Admin'), $2, $3, $4, $5, NOW(), $6)`;
+    const adminValues = [adminId, admin_email, admin_phone, hashedAdminPassword, false, admin_name];
+    const adminResult = await pool.query(adminQuery, adminValues);
+
+    if(adminResult.rowCount > 0) {
+      let businessId;
+      let isBusinessIdUnique = false;
+
+      const generateBusinessId = () => {
+        const tempId = Math.floor(100000 + Math.random() * 900000);
+        businessId = Number(`20${tempId}`);
+      }
+
+      while(!isBusinessIdUnique) {
+        generateBusinessId();
+        const result = await pool.query(`SELECT * FROM business_clients WHERE business_id = ${businessId}`);
+
+        if(result.rowCount === 0) {
+          isBusinessIdUnique = true;
+        } else {
+          isBusinessIdUnique = false;
+        }
+      };
+
+      try {
+        const businessQuery = `INSERT INTO business_clients (business_id, account_admin_id, company_name, business_type_id, reg_no, business_email, business_phone, business_password, created_at, account_status_id, billing_cycle_id, payment_method_id) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), (SELECT value_id FROM value_master WHERE value_name = 'Pending Verification'), $9, $10)`;
+        const businessValues = [businessId, adminId, company_name, business_type_id, reg_no, business_email, business_phone, hashedPassword, billing_cycle_id, payment_method_id];
+        const result = await pool.query(businessQuery, businessValues)
+        
+        if(result.rowCount > 0) {
+          const addressResult = await insertAddress(null, businessId, address, city, state, pincode, null, true);
+          if(addressResult.rowCount > 0) {
+            const token = generateJwtToken(businessId, business_email);
+            return token;
+          } else {
+            return false;
+          }
+        }
+      } catch (error) {
+        console.log("Error inserting business data to SQL: ", error);
+      }
+    }
+  } catch (error) {
+    console.log("Error inserting admin data to SQL: ", error);
+  }
+};
+
+
+module.exports = { registerCustomer, registerBusiness };
