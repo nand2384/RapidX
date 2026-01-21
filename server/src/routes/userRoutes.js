@@ -6,4 +6,6 @@ router.post("/register/customer", userController.registerCustomer);
 
 router.post("/register/business", userController.registerBusiness);
 
+router.post("/register/employee", userController.registerEmployee);
+
 module.exports = router;

@@ -18,6 +18,22 @@ const registerBusiness = async (req, res) => {
     } catch (error) {
         console.log("Error in registering business: ", error);
     }
-}
+};
 
-module.exports = { registerCustomer, registerBusiness };
+const registerEmployee = async (req, res) => {
+    try {
+        const { email, phone, password, first_name, last_name } = req.body;
+        const authToken = req.headers.authorization.split(" ")[1];
+        const response = await userService.registerEmployee(email, phone, password, first_name, last_name, authToken);
+        
+        if(response == true) {
+            res.status(201).json("Employee registered successfully");
+        } else {
+            res.status(400).json("Error in registering employee");
+        }
+    } catch (error) {
+        console.log("Error in registering employee: ", error);
+    }
+};
+
+module.exports = { registerCustomer, registerBusiness, registerEmployee };
