@@ -8,4 +8,6 @@ router.post("/register/business", userController.registerBusiness);
 
 router.post("/register/employee", userController.registerEmployee);
 
+router.post("/create/order", userController.createOrder);
+
 module.exports = router;

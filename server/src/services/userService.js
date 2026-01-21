@@ -83,21 +83,27 @@ const insertAddress = async (userId, businessId, address, city, state, pincode, 
     }
 };
 
-const generateJwtToken = (id, email) => {
-  const token = jwt.sign(
-    { id: id, email: email },
-    SECRET_KEY,
-    { expiresIn: "1h" }
-  );
-  return token;
-};           
+    
+
+const generateJwtToken = (userId, businessId, email) => {
+  const payload = {};
+
+  if (userId) payload.userId = userId;
+  if (businessId) payload.businessId = businessId;
+  if (email) payload.email = email;
+
+    const token = jwt.sign(payload, SECRET_KEY, {
+      expiresIn: "1h",
+    }); 
+    return token;
+};
 
 const extractJwtTokenData = async (authToken) => {
   try {
     const payload = jwt.decode(authToken, SECRET_KEY);
-    const id = payload.id;
+    const userId = payload.userId;
     const email = payload.email;
-    return { id, email };
+    return { userId, email };
   } catch (error) {
     console.log("Error extracting token data: ", error);
   }
@@ -224,4 +230,18 @@ const registerEmployee = async (email, phone, password, first_name, last_name, a
   }
 };
 
+
+const createOrder =  async ( sender_name, sender_phone, sender_state, sender_city, sender_pincode, receiver_name, receiver_address, receiver_state, receiver_city, receiver_pincode, parcel_type_id, special_instruction, parcel_category_id, order_amount, authToken) => {
+    const extractedData = await extractJwtTokenData(authToken);
+  const userId = extractedData.id;
+
+      let isUnique;
+  let orderId;
+
+  const generateOrderId = () => {
+    const tempId = Math.floor(100000 + Math.random() * 900000);
+    orderId = Number(`50${tempId}`);
+  }
+
+}
 module.exports = { registerCustomer, registerBusiness, registerEmployee };

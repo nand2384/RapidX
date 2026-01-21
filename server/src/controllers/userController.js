@@ -36,4 +36,15 @@ const registerEmployee = async (req, res) => {
     }
 };
 
-module.exports = { registerCustomer, registerBusiness, registerEmployee };
+const createOrder = async (req, res) => {
+    try{
+    
+        const {sender_name, sender_phone, sender_address, sender_state, sender_city, sender_pincode, reciver_name, reciver_phone, reciver_address, reciver_state, reciver_city, reciver_pincode, parcle_type_id, parcel_category_id, special_instruction, order_amount} = req.body;
+        const response = await userService.createOrder(sender_name, sender_phone, sender_address, sender_state, sender_city, sender_pincode, reciver_name, reciver_phone, reciver_address, reciver_state, reciver_city, reciver_pincode, parcle_type_id, parcel_category_id, special_instruction, order_amount);
+        res.status(201).json(reesponse);
+    } catch (error){
+        console.log("Error in Creating Order: ", error);
+    }
+}
+
+module.exports = { registerCustomer, registerBusiness, registerEmployee, createOrder };
