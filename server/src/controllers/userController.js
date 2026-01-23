@@ -1,4 +1,3 @@
-const { auth } = require("firebase-admin");
 const userService = require("../services/userService");
 
 const registerCustomer = async (req, res) => {
